@@ -12,6 +12,10 @@ Since this has been basically re-written, I am releasing under the MIT license.
 
 Pull requests, code corrections and ideas welcome!
 
+## Requirements
+- PyObjC bridge: `pip3 install pyobjc`
+  (This _could_ be packaged with but a better option might be to use Greg Neagle's [relocatable Python](https://github.com/gregneagle/relocatable-python) to push your own and the change the `#!/usr/local/bin/python3` in this script to match the path.)
+
 ## Caveats
 - For Catalina users, this will require the notifications to have been user approved.
 
