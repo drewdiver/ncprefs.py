@@ -30,7 +30,7 @@ SHOW_PREVIEW_ALWAYS = 1 << 13
 SHOW_IN_NOTIFICATION_CENTER = 1 << 0
 BADGE_APP_ICON = 1 << 1
 PLAY_SOUND_FOR_NOTIFICATIONS = 1 << 2
-ALLOW_NOTIFICATIONS = 1 << 26
+ALLOW_NOTIFICATIONS = 1 << 25
 
 pl = CFPreferencesCopyAppValue('apps', NCPREFS_PLIST)
 
@@ -92,7 +92,7 @@ def bundle_id_exists(bundle_id):
         print(f"Unable to find {bundle_id} in {NCPREFS_PLIST}")
         sys.exit(1)
     elif CATALINA and not flags & ALLOW_NOTIFICATIONS:
-        error("Notifications have not been allowed by the user for this application!")
+        error(f"{bundle_id} requires user approval")
         sys.exit(1)
 
     return item_found, item_index, flags
