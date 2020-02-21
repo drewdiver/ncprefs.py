@@ -92,7 +92,7 @@ def bundle_id_exists(bundle_id):
         print(f"Unable to find {bundle_id} in {NCPREFS_PLIST}")
         sys.exit(1)
     elif CATALINA and not flags & ALLOW_NOTIFICATIONS:
-        error(f"{bundle_id} requires user approval")
+        error(f"{get_app_name(bundle_id)} notifications were not user approved!")
         sys.exit(1)
 
     return item_found, item_index, flags
