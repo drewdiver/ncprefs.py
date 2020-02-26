@@ -214,20 +214,21 @@ def set_flags(new_flags, item_index):
     # replace the array in the ncprefs plist
     CFPreferencesSetAppValue("apps", new_apps_array, NCPREFS_PLIST)
 
-def set_allow_notifications(option, bundle_id):
-    """Enable or disable Notifications for bundle_id"""
+def set_alert_style(option, bundle_id):
     item_found, item_index, current_flags = bundle_id_exists(bundle_id)
     if item_found:
-        if option == "enable":
-            new_flags = current_flags &~ ALLOW_NOTIFICATIONS
-        elif option == "disable":
-            new_flags = current_flags | ALLOW_NOTIFICATIONS
-        else:
-            error(f"{option} is unknown, options are 'enable' or 'disable'")
-            sys.exit(1)
+    	if option == 'alerts':
+    		new_flags = new_flags | ALERTS
+    	elif option == 'banners':
+    		new_flags = new_flags | BANNERS
+    	elif option == 'none':
+    	    new_flags = current_flags & ~(BANNERS | ALERTS)
+    	else:
+    		error(f"{bundle_id} not found")
+    		sys.exit(1)
 
-        set_flags(new_flags, item_index)
-        kill_usernoted()
+    set_flags(new_flags, item_index)
+    kill_usernoted() 	
 
 def set_show_on_lock_screen(option, bundle_id):
     """Enable or disable Show notifications on lock screen setting"""
@@ -250,7 +251,7 @@ def set_show_on_lock_screen(option, bundle_id):
 def set_show_preview(option, bundle_id):
     """Enable or disable show notification preview"""
     item_found, item_index, current_flags = bundle_id_exists(bundle_id)
-    if item_found:
+    if item_found and current_flags & SHOW_ON_LOCK_SCREEN:
         if option == "enable":
             new_flags = current_flags & ~SHOW_PREVIEW
         elif option == "disable":
@@ -350,10 +351,6 @@ if __name__ == "__main__":
                              help="get the current play sound setting for specified bundle_id")
 
     settings_options = parser.add_argument_group('set notification settings')
-    settings_options.add_argument("--allow-notifications",
-                                  metavar=("enable|disable <bundle_id>"),
-                                  nargs="*",
-                                  help="enable or disable notifications for specified bundle_id")
     settings_options.add_argument("--set-alert-style",
                                   metavar=("alerts|banners|none", "<bundle_id>"),
                                   nargs="*",
@@ -420,15 +417,15 @@ if __name__ == "__main__":
         item_found, _, current_flags = bundle_id_exists(args.get_show_preview)
         if item_found:
             print(get_show_preview_status(current_flags))
-    if args.allow_notifications:
-        set_allow_notifications(args.allow_notifications[0], args.allow_notifications[1])
+    if args.set_alert_style:
+    	set_alert_style(args.set_alert_style[0], args.set_alert_style[1])
     if args.set_lock_screen:
-        set_show_on_lock_screen(args.lock_screen[0], args.lock_screen[1])
+        set_show_on_lock_screen(args.set_lock_screen[0], args.set_lock_screen[1])
     if args.set_show_preview:
-        set_show_preview(args.show_preview[0], args.show_preview[1])
+        set_show_preview(args.set_show_preview[0], args.set_show_preview[1])
     if args.set_notification_center:
-        set_show_in_nc(args.notification_center[0], args.notification_center[1])
+        set_show_in_nc(args.set_notification_center[0], args.set_notification_center[1])
     if args.set_badge_icon:
-        set_show_badge_app_icon(args.badge_icon[0], args.badge_icon[1])
+        set_show_badge_app_icon(args.set_badge_icon[0], args.set_badge_icon[1])
     if args.set_play_sound:
-        set_play_sound(args.play_sound[0], args.play_sound[1:])
+        set_play_sound(args.set_play_sound[0], args.set_play_sound[1:])
