@@ -216,11 +216,12 @@ def set_flags(new_flags, item_index):
 
 def set_alert_style(option, bundle_id):
     item_found, item_index, current_flags = bundle_id_exists(bundle_id)
+
     if item_found:
     	if option == 'alerts':
-    		new_flags = new_flags | ALERTS
+    		new_flags = current_flags | ALERTS
     	elif option == 'banners':
-    		new_flags = new_flags | BANNERS
+    		new_flags = current_flags | BANNERS
     	elif option == 'none':
     	    new_flags = current_flags & ~(BANNERS | ALERTS)
     	else:
