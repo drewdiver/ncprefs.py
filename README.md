@@ -17,7 +17,7 @@ Pull requests, code corrections and ideas are welcome!
 ## Caveats
 - For Catalina users, this will require the notifications to have been user approved.
 
-## Usage
+## Usage Examples
 Print the help dialogue:
 ```
 ./ncprefs.py -h
