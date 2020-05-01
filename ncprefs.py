@@ -219,6 +219,7 @@ def set_alert_style(option, bundle_id):
 
     if item_found:
     	new_flags = current_flags
+    	# Clear the current alert style (which is also equivalent to an alert style of 'None')
     	new_flags &= ~0b111000
     	if option == 'alerts':
     		new_flags |= ALERTS
