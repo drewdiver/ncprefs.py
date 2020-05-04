@@ -218,15 +218,18 @@ def set_alert_style(option, bundle_id):
     item_found, item_index, current_flags = bundle_id_exists(bundle_id)
 
     if item_found:
+    	new_flags = current_flags
+    	# Clear the current alert style (which is also equivalent to an alert style of 'None')
+    	new_flags &= ~0b111000
     	if option == 'alerts':
-    		new_flags = current_flags | ALERTS
+    		new_flags |= ALERTS
     	elif option == 'banners':
-    		new_flags = current_flags | BANNERS
+    		new_flags |= BANNERS
     	elif option == 'none':
-    	    new_flags = current_flags & ~(BANNERS | ALERTS)
-    	else:
-    		error(f"{bundle_id} not found")
-    		sys.exit(1)
+    	    pass
+    else:
+    	error(f"{bundle_id} not found")
+    	sys.exit(1)
 
     set_flags(new_flags, item_index)
     kill_usernoted() 	
