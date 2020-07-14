@@ -13,6 +13,7 @@ Pull requests, code corrections and ideas are welcome!
 ## Requirements
 - The PyObjC bridge is required: `pip3 install pyobjc`
   (A nice option might be to use Greg Neagle's [relocatable Python](https://github.com/gregneagle/relocatable-python) to push your own and the change the `#!/usr/local/bin/python3` in this script to match the installation path.)
+- The macadmins org on GitHub has a solution for maintaining your instance of python. [github.com/macadmins/python](https://github.com/macadmins/python) This repo is designed to take and extend Greg Neagle's relocatable python and make managing your python even easier.
 
 ## Caveats
 - For Catalina users, this will require the notifications to have been user approved.
