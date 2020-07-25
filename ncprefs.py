@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/local/bin/python2.7+
 
 import os
 import argparse
@@ -37,16 +37,16 @@ pl = CFPreferencesCopyAppValue('apps', NCPREFS_PLIST)
 def verbose(output):
     if args.verbose:
         try:
-            print(f"verbose: {output}")
+            print("verbose: {output}")
         except:
             pass
 
 def error(output):
-    print(f"error: {output}")
+    print("error: {output}")
 
 def kill_usernoted():
     """Apply settings by killing the usernoted daemon"""
-    subprocess.run(['killall', 'cfprefsd', 'usernoted'])
+    subprocess.call(['killall', 'cfprefsd', 'usernoted'])
 
 def get_app_name(bundle_id):
     """Return the App name from the bundle-id"""
@@ -71,7 +71,7 @@ def list_bundle_id(pl):
         except:
             pass
         index += 1
-    verbose(f"{NCPREFS_PLIST}")
+    verbose("{NCPREFS_PLIST}")
 
 def bundle_id_exists(bundle_id):
     """Check that the specified bundle_id exists, get item index and copy the flags value"""
@@ -82,17 +82,17 @@ def bundle_id_exists(bundle_id):
                 item_found = True
                 item_index = index
                 flags = int(app['flags'])
-                verbose(f"Found {bundle_id} at index {index} with flags {flags} in {NCPREFS_PLIST}")
+                verbose("Found {bundle_id} at index {index} with flags {flags} in {NCPREFS_PLIST}")
                 break
         except:
             pass
         index += 1
 
     if not item_found:
-        print(f"Unable to find {bundle_id} in {NCPREFS_PLIST}")
+        print("Unable to find {bundle_id} in {NCPREFS_PLIST}")
         sys.exit(1)
     elif CATALINA and not flags & ALLOW_NOTIFICATIONS:
-        error(f"{get_app_name(bundle_id)} notifications were not user approved!")
+        error("{get_app_name(bundle_id)} notifications were not user approved!")
         sys.exit(1)
 
     return item_found, item_index, flags
@@ -168,36 +168,36 @@ def get_info(bundle_id):
         if app_name == "N/A":
             app_name = bundle_id
 
-        print(f"Settings for {app_name} in {NCPREFS_PLIST}\n")
+        print("Settings for {app_name} in {NCPREFS_PLIST}\n")
 
-        print(f"Alert Style: {get_alert_style(current_flags)}")
+        print("Alert Style: {get_alert_style(current_flags)}")
 
         if get_show_on_lock_screen_status(current_flags):
-            print("[✓] Show notifications on lock screen")
+            print("[x] Show notifications on lock screen")
         else:
             print("[ ] Show notifications on lock screen")
 
         if get_show_preview_status(current_flags):
-            print("[✓] Show notification preview")
+            print("[x] Show notification preview")
         elif get_show_preview_always_status(current_flags):
-            print("[✓] Show notification preview (always)")
+            print("[x] Show notification preview (always)")
         elif get_show_preview_unlocked_status(current_flags):
-            print("[✓] Show notification preview (when unlocked)")
+            print("[x] Show notification preview (when unlocked)")
         else:
             print("[ ] Show notification preview")
 
         if get_show_in_nc_status(current_flags):
             print("[ ] Show in Notification Center")
         else:
-            print("[✓] Show in Notification Center")
+            print("[x] Show in Notification Center")
 
         if get_badge_app_icon_status(current_flags):
-            print("[✓] Badge app icon")
+            print("[x] Badge app icon")
         else:
             print("[ ] Badge app icon")
 
         if get_play_sound_status(current_flags):
-            print("[✓] Play sound for notifications")
+            print("[x] Play sound for notifications")
         else:
             print("[ ] Play sound for notifications")
 
@@ -228,7 +228,7 @@ def set_alert_style(option, bundle_id):
     	elif option == 'none':
     	    pass
     else:
-    	error(f"{bundle_id} not found")
+    	error("{bundle_id} not found")
     	sys.exit(1)
 
     set_flags(new_flags, item_index)
@@ -243,10 +243,10 @@ def set_show_on_lock_screen(option, bundle_id):
         elif option == "disable":
             new_flags = current_flags | SHOW_ON_LOCK_SCREEN
         else:
-            error(f"{option} should be either 'enable' or 'disable'")
+            error("{option} should be either 'enable' or 'disable'")
             sys.exit(1)
     else:
-        error(f"{bundle_id} not found")
+        error("{bundle_id} not found")
         sys.exit(1)
 
     set_flags(new_flags, item_index)
@@ -261,10 +261,10 @@ def set_show_preview(option, bundle_id):
         elif option == "disable":
             new_flags = current_flags | SHOW_PREVIEW
         else:
-            error(f"{option} should be either 'enable' or 'disable'")
+            error("{option} should be either 'enable' or 'disable'")
             sys.exit(1)
     else:
-        error(f"{bundle_id} not found")
+        error("{bundle_id} not found")
         sys.exit(1)
 
     set_flags(new_flags, item_index)
@@ -279,10 +279,10 @@ def set_show_in_nc(option, bundle_id):
         elif option == "disable":
             new_flags = current_flags | SHOW_IN_NOTIFICATION_CENTER
         else:
-            error(f"{option} should be either 'enable' or 'disable'")
+            error("{option} should be either 'enable' or 'disable'")
             sys.exit(1)
     else:
-        error(f"{bundle_id} not found")
+        error("{bundle_id} not found")
         sys.exit(1)
 
     set_flags(new_flags, item_index)
@@ -297,10 +297,10 @@ def set_show_badge_app_icon(option, bundle_id):
         elif option == "disable":
             new_flags = current_flags & ~BADGE_APP_ICON
         else:
-            error(f"{option} should be either 'enable' or 'disable'")
+            error("{option} should be either 'enable' or 'disable'")
             sys.exit(1)
     else:
-        error(f"{bundle_id} not found")
+        error("{bundle_id} not found")
         sys.exit(1)
 
     set_flags(new_flags, item_index)
@@ -316,11 +316,11 @@ def set_play_sound(option, bundle_id):
             elif option == "disable":
                 new_flags = current_flags & ~PLAY_SOUND_FOR_NOTIFICATIONS
             else:
-                error(f"{option} should be either 'enable' or 'disable'")
+                error("{option} should be either 'enable' or 'disable'")
                 sys.exit(1)
             set_flags(new_flags, item_index)
         else:
-            error(f"{bundle_id} not found")
+            error("{bundle_id} not found")
             sys.exit(1)
 
     kill_usernoted()
@@ -388,19 +388,15 @@ if __name__ == "__main__":
     # get the macOS major number
     v, _, _ = mac_ver()
     mac_major = int(v.split('.')[1])
-
-	# make sure we are on a supported macOS version before continuing.
-    if mac_major == 15:
-        verbose(f"Running Catalina")
-        CATALINA = True
-    elif mac_major == 14:
-        verbose("Running Mojave")
-        CATALINA = False
+    
+    # make sure we are on a supported macOS version before continuing.
+    if mac_major >= 10.14:
+        verbose("Approved Version")
     else:
-        verbose(f"Running unsupported version 10.{mac_major}")
+        verbose("Running unsupported version 10.{mac_major}")
         print("Error: ncprefs only supports macOS 10.14 (Mojave) and later.")
         sys.exit(1)
-
+        
     # print the help menu if no arguments are specified
     if len(sys.argv) <= 1:
         parser.print_help()
