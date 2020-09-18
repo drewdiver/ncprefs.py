@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/Library/ManagedFrameworks/Python/Python3.framework/Versions/Current/bin/python3
 
 import os
 import argparse
@@ -60,6 +60,7 @@ def get_app_name(bundle_id):
 def list_bundle_id(pl):
     """List all bundle_id's in ncprefs plist"""
     # add bold title above list
+    app_list = []
     print('\033[1m{:30s} {:20s}\033[0m'.format("App Name", "Bundle ID"))
 
     for index, app in enumerate(pl):
@@ -67,10 +68,14 @@ def list_bundle_id(pl):
             # probably best to avoid messing with _SYSTEM_CENTER_ stuff?
             if '_CENTER_' not in app['bundle-id']:
                 app_name = get_app_name(app['bundle-id'])
-                print('{:30s} {:20s}'.format(app_name, app['bundle-id']))
+                app_list.append([app_name, app['bundle-id']])
         except:
             pass
         index += 1
+
+    for app, bundle in sorted(app_list):
+        print('{:30s} {:20s}'.format(app, bundle))
+    #print(sorted(sorted_apps))
     verbose(f"{NCPREFS_PLIST}")
 
 def bundle_id_exists(bundle_id):
@@ -390,8 +395,8 @@ if __name__ == "__main__":
     mac_major = int(v.split('.')[1])
 
 	# make sure we are on a supported macOS version before continuing.
-    if mac_major == 15:
-        verbose(f"Running Catalina")
+    if mac_major >= 15:
+        verbose(f"Running Catalina or later")
         CATALINA = True
     elif mac_major == 14:
         verbose("Running Mojave")
