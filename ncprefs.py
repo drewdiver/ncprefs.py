@@ -1,4 +1,4 @@
-#!/Library/ManagedFrameworks/Python/Python3.framework/Versions/Current/bin/python3
+#!/Library/Management/Frameworks/Python/Python3.framework/Versions/Current/bin/python3
 
 import os
 import argparse
@@ -17,11 +17,8 @@ from Foundation import (
 )
 # pylint: enable=E0611
 
-# target com.apple.ncprefs.plist
 NCPREFS_PLIST = os.path.expanduser('~/Library/Preferences/com.apple.ncprefs')
 CATALINA = None
-
-# bit-shifting
 BANNERS = 1 << 3
 ALERTS = 1 << 4
 SHOW_ON_LOCK_SCREEN = 1 << 12
@@ -73,7 +70,7 @@ def list_bundle_id(pl):
             pass
         index += 1
 
-    for app, bundle in sorted(app_list):
+    for app, bundle in sorted(app_list, key=lambda x:x[0].lower()):
         print('{:30s} {:20s}'.format(app, bundle))
     #print(sorted(sorted_apps))
     verbose(f"{NCPREFS_PLIST}")
@@ -237,7 +234,7 @@ def set_alert_style(option, bundle_id):
     	sys.exit(1)
 
     set_flags(new_flags, item_index)
-    kill_usernoted() 	
+    kill_usernoted()
 
 def set_show_on_lock_screen(option, bundle_id):
     """Enable or disable Show notifications on lock screen setting"""
