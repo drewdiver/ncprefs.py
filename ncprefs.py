@@ -170,24 +170,17 @@ def modify_ncprefs_plist(key, value, item_index):
     # replace the mutible dict within the mutable array
     new_apps_array.replaceObjectAtIndex_withObject_(item_index, new_dict)
     # replace the array in the ncprefs plist
-    CFPreferencesSetAppValue("apps", new_apps_array, NCPREFS_PLIST)    
+    CFPreferencesSetAppValue("apps", new_apps_array, NCPREFS_PLIST)
 
-def reset_allow_notifications(option, bundle_id):
+def disallow_notifications():
 	"""
 	if notifications are enabled, you can turn off, this removes the app from the 
 	notifications list and will re-prompt the user at next app launch
 	"""
-	item_found, item_index, current_flags = bundle_id_exists(bundle_id)
-	
-	if item_found:
-		if option == "off":
-			new_flags = current_flags | ~ALLOW_NOTIFICATIONS
-		else:
-			error(f"{option} only 'off' is supported")
-			sys.exit(1)
+	new_flags = current_flags | ~ALLOW_NOTIFICATIONS
 		
-		set_flags(new_flags, item_index)
-		kill_usernoted()
+	modify_ncprefs_plist('flags', new_flags, item_index)
+	kill_usernoted()
 
 def set_alert_style(option, nc_setting):
     new_flags = current_flags
@@ -283,6 +276,8 @@ if __name__ == "__main__":
     						  help="get the 'Notification grouping' setting")
 
     set_options = parser.add_argument_group('set specific notification nc_settings')
+    set_options.add_argument("-sd", "--disallow-notifications", metavar="<bundle_id>",
+                              help="Turn off 'Allow notifications' for specified bundle_id. The app will re-prompt at next launch.")
     set_options.add_argument("-sa", "--set-alert-style",
                               metavar=("alerts|banners|none", "<bundle_id>"),
                               nargs="*",
@@ -388,6 +383,11 @@ if __name__ == "__main__":
         item_found, _, _, grouping, _ = bundle_id_exists(args.get_notification_grouping)
         if item_found:
     	    print(get_notification_grouping(grouping))
+
+    if args.disallow_notifications:
+        item_found, item_index, current_flags, _, _ = bundle_id_exists(args.disallow_notifications)
+        if item_found:
+            disallow_notifications()
 
     if args.set_alert_style:
         item_found, item_index, current_flags, _, _ = bundle_id_exists(args.set_alert_style[1])
