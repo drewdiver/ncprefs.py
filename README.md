@@ -1,5 +1,5 @@
 ![](https://img.shields.io/badge/python-3.8-green.svg)
-![](https://img.shields.io/badge/os-macOS_10.14+-2d74da.svg)
+![](https://img.shields.io/badge/os-macOS_11+-2d74da.svg)
 
 # ncprefs.py
 
