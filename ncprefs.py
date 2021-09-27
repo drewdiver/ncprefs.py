@@ -29,6 +29,8 @@ BADGE_APP_ICON = 1 << 1
 PLAY_SOUND_FOR_NOTIFICATIONS = 1 << 2
 ALLOW_NOTIFICATIONS = 1 << 25
 
+NCPREFSPY_VERSION = '0.1'
+
 pl = CFPreferencesCopyAppValue('apps', NCPREFS_PLIST)
 
 def verbose(output):
