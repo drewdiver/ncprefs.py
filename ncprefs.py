@@ -1,13 +1,8 @@
-#!/Library/Management/Frameworks/Python/Python3.framework/Versions/Current/bin/python3
+#!/opt/homebrew/bin/python3
 
-import os
-import argparse
-import subprocess
-import sys
+import os, argparse, subprocess, sys
 from platform import mac_ver
 from AppKit import NSWorkspace
-
-# pylint: disable=E0611
 from Foundation import (
     CFPreferencesCopyAppValue,
     CFPreferencesSetAppValue,
@@ -15,23 +10,38 @@ from Foundation import (
     NSMutableArray,
     NSMutableDictionary,
 )
-# pylint: enable=E0611
 
-NCPREFS_PLIST = os.path.expanduser('~/Library/Preferences/com.apple.ncprefs')
-CATALINA = None
+##########################################################################################
+# CONSTANTS
+##########################################################################################
+
+NCPREFSPY_VERSION = '0.2'
+
 BANNERS = 1 << 3
 ALERTS = 1 << 4
 SHOW_ON_LOCK_SCREEN = 1 << 12
-SHOW_PREVIEW = 1 << 14
-SHOW_PREVIEW_ALWAYS = 1 << 13
 SHOW_IN_NOTIFICATION_CENTER = 1 << 0
 BADGE_APP_ICON = 1 << 1
 PLAY_SOUND_FOR_NOTIFICATIONS = 1 << 2
 ALLOW_NOTIFICATIONS = 1 << 25
+NCPREFS_PLIST = os.path.expanduser('~/Library/Preferences/com.apple.ncprefs')
+CRITICAL_ALERTS = 1 << 26
+TIME_SENSITIVE_ALERTS = 1 << 29
+TIME_SENSITIVE_APPS = [ "com.apple.iBooksX",
+                        "com.apple.iCal", 
+                        "com.apple.gamecenter",
+                        "com.apple.Home",
+                        "com.apple.MobileSMS",
+                        "com.apple.reminders",
+                        "com.apple.ScreenTimeNotifications",
+                        "com.apple.Passbook" ]
 
-NCPREFSPY_VERSION = '0.1'
+##########################################################################################
+# Utility
+##########################################################################################
 
-pl = CFPreferencesCopyAppValue('apps', NCPREFS_PLIST)
+def error(output):
+    print(f"ERROR: {output}")
 
 def verbose(output):
     if args.verbose:
@@ -40,45 +50,15 @@ def verbose(output):
         except:
             pass
 
-def error(output):
-    print(f"error: {output}")
-
 def kill_usernoted():
-    """Apply settings by killing the usernoted daemon"""
     subprocess.run(['killall', 'cfprefsd', 'usernoted'])
 
-def get_app_name(bundle_id):
-    """Return the App name from the bundle-id"""
-    app_path = NSWorkspace.sharedWorkspace().absolutePathForAppBundleWithIdentifier_(bundle_id)
-    if not app_path:
-        app_name = "SYSTEM"
-    else:
-        app_name = NSFileManager.defaultManager().displayNameAtPath_(app_path)
-    return app_name
+##########################################################################################
+# Get Functions
+##########################################################################################
 
-def list_bundle_id(pl):
-    """List all bundle_id's in ncprefs plist"""
-    # add bold title above list
-    app_list = []
-    print('\033[1m{:30s} {:20s}\033[0m'.format("App Name", "Bundle ID"))
-
-    for index, app in enumerate(pl):
-        try:
-            # probably best to avoid messing with _SYSTEM_CENTER_ stuff?
-            if '_CENTER_' not in app['bundle-id']:
-                app_name = get_app_name(app['bundle-id'])
-                app_list.append([app_name, app['bundle-id']])
-        except:
-            pass
-        index += 1
-
-    for app, bundle in sorted(app_list, key=lambda x:x[0].lower()):
-        print('{:30s} {:20s}'.format(app, bundle))
-    #print(sorted(sorted_apps))
-    verbose(f"{NCPREFS_PLIST}")
-
+# check that the specified bundle_id exists, get item index and copy the flags value
 def bundle_id_exists(bundle_id):
-    """Check that the specified bundle_id exists, get item index and copy the flags value"""
     item_found = False
     for index, app in enumerate(pl):
         try:
@@ -86,354 +66,387 @@ def bundle_id_exists(bundle_id):
                 item_found = True
                 item_index = index
                 flags = int(app['flags'])
-                verbose(f"Found {bundle_id} at index {index} with flags {flags} in {NCPREFS_PLIST}")
+                grouping = int(app['grouping'])
+                content_visibility = int(app['content_visibility'])
+                verbose(f"Found {bundle_id} at index {index} in {NCPREFS_PLIST}")
+                verbose(f"flags: {flags}")
+                verbose(f"grouping: {grouping}")
+                verbose(f"content_visibility: {content_visibility}")
                 break
         except:
             pass
         index += 1
 
-    if not item_found:
+    if item_found is False:
         print(f"Unable to find {bundle_id} in {NCPREFS_PLIST}")
         sys.exit(1)
-    elif CATALINA and not flags & ALLOW_NOTIFICATIONS:
-        error(f"{get_app_name(bundle_id)} notifications were not user approved!")
+    elif not flags & ALLOW_NOTIFICATIONS:
+        print(f"Notifications were not user approved for {get_app_name(bundle_id)}, nothing to do.")
         sys.exit(1)
+    else:
+        return item_found, item_index, flags, grouping, content_visibility
 
-    return item_found, item_index, flags
+# return the App name from the bundle-id
+def get_app_name(bundle_id):
+    app_path = NSWorkspace.sharedWorkspace().absolutePathForAppBundleWithIdentifier_(bundle_id)
+    if not app_path:
+        app_name = "SYSTEM"
+    else:
+        app_name = NSFileManager.defaultManager().displayNameAtPath_(app_path)
+    return app_name
+
+# list all app names and corresponding bundle-id's alphabetically in ncprefs.plist
+def list_bundle_ids(pl):
+    app_list = []
+
+    for index, app in enumerate(pl):
+        try:
+            app_name = get_app_name(app['bundle-id'])
+            app_list.append([app_name, app['bundle-id']])
+        except:
+            pass
+        index += 1
+
+    for app, bundle in sorted(app_list, key=lambda x:x[0].lower()):
+        #print('{:30s} {:20s}'.format(app, bundle))
+        print(f"{app} ({bundle})")
 
 def get_alert_style(current_flags):
     if current_flags & BANNERS:
-        style = "Banners"
+        return "Banners"
     elif current_flags & ALERTS:
-        style = "Alerts"
+        return "Alerts"
     else:
-        style = "None"
-    return style
+        return "None"
 
-def get_show_on_lock_screen_status(current_flags):
-    """Get notifications on lock screen setting"""
-    if not current_flags & SHOW_ON_LOCK_SCREEN:
-        status = True
+def get_notification_setting(current_flags, nc_setting):
+    """Annoyingly this nc_setting is represented by a 0 when enabled, so we have to negate
+    the 'if' block, is there a better way to invert? """
+    if nc_setting == SHOW_ON_LOCK_SCREEN:
+         if not current_flags & nc_setting:
+             return True
+         else:
+             return False
+    elif current_flags & nc_setting:
+    	return True
     else:
-        status = False
-    return status
+        return False
 
-def get_show_preview_status(current_flags):
-    """Get show notification preview setting"""
-    # a 0 bit indicates enabled, so we need to inverse
-    if not current_flags & SHOW_PREVIEW and not get_show_on_lock_screen_status(current_flags):
-        status = True
+def get_show_previews(value):
+    if value == 1:
+        return "never (default)"
+    elif value == 2:
+        return "when unlocked"
+    elif value == 3:
+        return "always"
     else:
-        status = False
-    return status
+        print("Error, unknown value.")
+        sys.exit(1)
 
-def get_show_preview_always_status(current_flags):
-    """Get show notification preview setting - always"""
-    if current_flags & SHOW_PREVIEW_ALWAYS and get_show_on_lock_screen_status(current_flags) and not current_flags & SHOW_PREVIEW:
-        status = True
+def get_notification_grouping(value):
+    if value == 0:
+        return "automatic"
+    elif value == 1:
+        return "by app"
+    elif value == 2:
+        return "off"
     else:
-        status = False
-    return status
+        print("Error, unknown value")
+        sys.exit(1)
 
-def get_show_preview_unlocked_status(current_flags):
-    """Get show notification preview settings - unlocked"""
-    if not current_flags & SHOW_PREVIEW_ALWAYS and get_show_on_lock_screen_status(current_flags) and not current_flags & SHOW_PREVIEW:
-        status = True
-    else:
-        status = False
-    return status
+##########################################################################################
+# Set Functions
+##########################################################################################
 
-def get_show_in_nc_status(current_flags):
-    if current_flags & SHOW_IN_NOTIFICATION_CENTER:
-        status = True
-    else:
-        status = False
-    return status
-
-def get_badge_app_icon_status(current_flags):
-    if current_flags & BADGE_APP_ICON:
-        status = True
-    else:
-        status = False
-    return status
-
-def get_play_sound_status(current_flags):
-    if current_flags & PLAY_SOUND_FOR_NOTIFICATIONS:
-        status = True
-    else:
-        status = False
-    return status
-
-def get_info(bundle_id):
-    """Return current settings for specified bundle_id"""
-    item_found, _, current_flags = bundle_id_exists(bundle_id)
-    if item_found:
-        app_name = get_app_name(bundle_id)
-        if app_name == "N/A":
-            app_name = bundle_id
-
-        print(f"Settings for {app_name} in {NCPREFS_PLIST}\n")
-
-        print(f"Alert Style: {get_alert_style(current_flags)}")
-
-        if get_show_on_lock_screen_status(current_flags):
-            print("[✓] Show notifications on lock screen")
-        else:
-            print("[ ] Show notifications on lock screen")
-
-        if get_show_preview_status(current_flags):
-            print("[✓] Show notification preview")
-        elif get_show_preview_always_status(current_flags):
-            print("[✓] Show notification preview (always)")
-        elif get_show_preview_unlocked_status(current_flags):
-            print("[✓] Show notification preview (when unlocked)")
-        else:
-            print("[ ] Show notification preview")
-
-        if get_show_in_nc_status(current_flags):
-            print("[ ] Show in Notification Center")
-        else:
-            print("[✓] Show in Notification Center")
-
-        if get_badge_app_icon_status(current_flags):
-            print("[✓] Badge app icon")
-        else:
-            print("[ ] Badge app icon")
-
-        if get_play_sound_status(current_flags):
-            print("[✓] Play sound for notifications")
-        else:
-            print("[ ] Play sound for notifications")
-
-def set_flags(new_flags, item_index):
-    """Set the new flags in the ncprefs plist"""
+# set the new flags in the ncprefs plist
+# key is one of 'flags', 'grouping' or 'content_visibility'
+def modify_ncprefs_plist(key, value, item_index):
     # make an immutuble copy of the 'apps' array in ncprefs
     new_apps_array = NSMutableArray.alloc().initWithArray_(pl)
     # make a mutable copy of the target dict within the array
     new_dict = NSMutableDictionary.alloc().initWithDictionary_copyItems_(new_apps_array[item_index], True)
     # set the value
-    new_dict['flags'] = new_flags
+    new_dict[key] = value
     # replace the mutible dict within the mutable array
     new_apps_array.replaceObjectAtIndex_withObject_(item_index, new_dict)
     # replace the array in the ncprefs plist
-    CFPreferencesSetAppValue("apps", new_apps_array, NCPREFS_PLIST)
+    CFPreferencesSetAppValue("apps", new_apps_array, NCPREFS_PLIST)    
 
-def set_alert_style(option, bundle_id):
-    item_found, item_index, current_flags = bundle_id_exists(bundle_id)
+def reset_allow_notifications(option, bundle_id):
+	"""
+	if notifications are enabled, you can turn off, this removes the app from the 
+	notifications list and will re-prompt the user at next app launch
+	"""
+	item_found, item_index, current_flags = bundle_id_exists(bundle_id)
+	
+	if item_found:
+		if option == "off":
+			new_flags = current_flags | ~ALLOW_NOTIFICATIONS
+		else:
+			error(f"{option} only 'off' is supported")
+			sys.exit(1)
+		
+		set_flags(new_flags, item_index)
+		kill_usernoted()
 
-    if item_found:
-    	new_flags = current_flags
-    	# Clear the current alert style (which is also equivalent to an alert style of 'None')
-    	new_flags &= ~0b111000
-    	if option == 'alerts':
-    		new_flags |= ALERTS
-    	elif option == 'banners':
-    		new_flags |= BANNERS
-    	elif option == 'none':
-    	    pass
+def set_alert_style(option, nc_setting):
+    new_flags = current_flags
+    # clear the current alert style (which is also equivalent to an alert style of 'None')
+    new_flags &= ~0b111000
+    if option == 'alerts':
+        new_flags |= ALERTS
+    elif option == 'banners':
+        new_flags |= BANNERS
+    elif option == 'none':
+        pass
     else:
-    	error(f"{bundle_id} not found")
-    	sys.exit(1)
-
-    set_flags(new_flags, item_index)
-    kill_usernoted()
-
-def set_show_on_lock_screen(option, bundle_id):
-    """Enable or disable Show notifications on lock screen setting"""
-    item_found, item_index, current_flags = bundle_id_exists(bundle_id)
-    if item_found:
-        if option == "enable":
-            new_flags = current_flags & ~SHOW_ON_LOCK_SCREEN
-        elif option == "disable":
-            new_flags = current_flags | SHOW_ON_LOCK_SCREEN
-        else:
-            error(f"{option} should be either 'enable' or 'disable'")
-            sys.exit(1)
-    else:
-        error(f"{bundle_id} not found")
+        error(f"{nc_setting} not found, must be one of alert, banners or none")
         sys.exit(1)
 
-    set_flags(new_flags, item_index)
+    modify_ncprefs_plist('flags', new_flags, item_index)
     kill_usernoted()
 
-def set_show_preview(option, bundle_id):
-    """Enable or disable show notification preview"""
-    item_found, item_index, current_flags = bundle_id_exists(bundle_id)
-    if item_found and current_flags & SHOW_ON_LOCK_SCREEN:
+def set_notification_option(option, nc_setting):
+    # there's probably a much cleaner way to handle this...
+    if nc_setting == SHOW_ON_LOCK_SCREEN or nc_setting == SHOW_IN_NOTIFICATION_CENTER:
         if option == "enable":
-            new_flags = current_flags & ~SHOW_PREVIEW
-        elif option == "disable":
-            new_flags = current_flags | SHOW_PREVIEW
+            new_flags = current_flags & ~nc_setting
         else:
-            error(f"{option} should be either 'enable' or 'disable'")
-            sys.exit(1)
+            new_flags = current_flags | nc_setting
+    elif option == "enable":
+        new_flags = current_flags | nc_setting
+    elif option == "disable":
+        new_flags = current_flags & ~nc_setting
     else:
-        error(f"{bundle_id} not found")
+        error(f"{option} should be either 'enable' or 'disable'")
         sys.exit(1)
 
-    set_flags(new_flags, item_index)
+    modify_ncprefs_plist('flags', new_flags, item_index)
     kill_usernoted()
 
-def set_show_in_nc(option, bundle_id):
-    """Enable or disable Show in Notification Center"""
-    item_found, item_index, current_flags = bundle_id_exists(bundle_id)
-    if item_found:
-        if option == "enable":
-            new_flags = current_flags & ~SHOW_IN_NOTIFICATION_CENTER
-        elif option == "disable":
-            new_flags = current_flags | SHOW_IN_NOTIFICATION_CENTER
-        else:
-            error(f"{option} should be either 'enable' or 'disable'")
-            sys.exit(1)
+def set_show_previews(option):
+    if option == "always":
+        new_option = 3
+    elif option == "unlocked":
+        new_option = 2
+    elif option == "never":
+        new_option = 1
     else:
-        error(f"{bundle_id} not found")
+        error(f"{option} unrecognized, must be one of 'always', 'unlocked' or 'never'")
         sys.exit(1)
 
-    set_flags(new_flags, item_index)
+    modify_ncprefs_plist('content_visibility', new_option, item_index)
     kill_usernoted()
 
-def set_show_badge_app_icon(option, bundle_id):
-    """Enable or disable Show badge app icon in Notification Center"""
-    item_found, item_index, current_flags = bundle_id_exists(bundle_id)
-    if item_found:
-        if option == "enable":
-            new_flags = current_flags | BADGE_APP_ICON
-        elif option == "disable":
-            new_flags = current_flags & ~BADGE_APP_ICON
-        else:
-            error(f"{option} should be either 'enable' or 'disable'")
-            sys.exit(1)
+def set_notification_grouping(option):
+    if option == "automatic":
+        new_option = 0
+    elif option == "byapp":
+        new_option = 1
+    elif option == "off":
+        new_option = 2
     else:
-        error(f"{bundle_id} not found")
+        error(f"{option} unrecognized, must be one of 'automatic', 'byapp' or 'off'")
         sys.exit(1)
-
-    set_flags(new_flags, item_index)
-    kill_usernoted()
-
-def set_play_sound(option, bundle_id):
-    """Enable or disable Play sound in Notification Center"""
-    for bundle_id in bundle_id:
-        item_found, item_index, current_flags = bundle_id_exists(bundle_id)
-        if item_found:
-            if option == "enable":
-                new_flags = current_flags | PLAY_SOUND_FOR_NOTIFICATIONS
-            elif option == "disable":
-                new_flags = current_flags & ~PLAY_SOUND_FOR_NOTIFICATIONS
-            else:
-                error(f"{option} should be either 'enable' or 'disable'")
-                sys.exit(1)
-            set_flags(new_flags, item_index)
-        else:
-            error(f"{bundle_id} not found")
-            sys.exit(1)
-
+    
+    modify_ncprefs_plist('grouping', new_option, item_index)
     kill_usernoted()
 
 if __name__ == "__main__":
+    
+    # get the dict of 'apps' from the logged in users plist
+    pl = CFPreferencesCopyAppValue('apps', NCPREFS_PLIST)
 
     parser = argparse.ArgumentParser(description="ncprefs.py: control Notification Center via the command line")
     info_options = parser.add_argument_group('info')
     info_options.add_argument("-l", "--list", action="store_true",
                               help="print all available bundle_id's in Notification Center")
-    info_options.add_argument("-i", "--get-info", metavar="<bundle_id>",
-                              help="display all current notification settings for specified bundle_id")
 
     get_options = parser.add_argument_group('get specific notification settings')
-    get_options.add_argument("--get-alert-style",
-                             metavar="<bundle_id>",
-                             help="get the current notification alert style for specified bundle_id")
-    get_options.add_argument("--get-lock-screen",
-                             metavar="<bundle_id>",
-                             help="get the current show on lock screen setting for specified bundle_id")
-    get_options.add_argument("--get-show-preview",
-                             metavar="<bundle_id>",
-                             help="get the current show preview setting for specified bundle_id")
-    get_options.add_argument("--get-notification-center",
-                             metavar="<bundle_id>",
-                             help="get the current show notification preview setting for specified bundle_id")
-    get_options.add_argument("--get-badge-icon",
-                             metavar="<bundle_id>",
-                             help="get the current show badge app icon setting for specified bundle_id")
-    get_options.add_argument("--get-play-sound",
-                             metavar="<bundle_id>",
-                             help="get the current play sound setting for specified bundle_id")
+    get_options.add_argument("-a", "--get-alert-style", metavar="<bundle_id>",
+                              help="get the notification 'Alert style'")
+    get_options.add_argument("-c", "--get-allow-critical-alerts", metavar="<bundle_id>",
+                              help="get the 'Allow critical alerts' setting")
+    get_options.add_argument("-t", "--get-time-sensitive-alerts", metavar="<bundle_id>",
+                              help="get the 'Allow time-sensitive alerts' setting")
+    get_options.add_argument("-o", "--get-show-on-lock-screen", metavar="<bundle_id>",
+                              help="get the 'Show notifications on lock screen' setting")
+    get_options.add_argument("-n", "--get-show-in-notification-center", metavar="<bundle_id>",
+                              help="get the 'Show in notification center' setting")
+    get_options.add_argument("-b", "--get-badge-app-icon", metavar="<bundle_id>",
+                              help="get the 'Badge app icon\' setting")
+    get_options.add_argument("-p", "--get-play-sound", metavar="<bundle_id>",
+                              help="get the 'Play sound for notifications' setting")
+    get_options.add_argument("-r", "--get-show-previews", metavar="<bundle_id>",
+    						  help="get the 'Show previews' setting")
+    get_options.add_argument("-g", "--get-notification-grouping", metavar="<bundle_id>",
+    						  help="get the 'Notification grouping' setting")
 
-    settings_options = parser.add_argument_group('set notification settings')
-    settings_options.add_argument("--set-alert-style",
-                                  metavar=("alerts|banners|none", "<bundle_id>"),
-                                  nargs="*",
-                                  help="set notification alert style for specified bundle_id")
-    settings_options.add_argument("--set-lock-screen",
-                                  metavar=("enable|disable", "<bundle_id>"),
-                                  nargs="*",
-                                  help="set show on lock screen setting for specified bundle_id")
-    settings_options.add_argument("--set-show-preview",
-                                  metavar=("enable|disable", "<bundle_id>"),
-                                  nargs="*",
-                                  help="set show notification preview option for specified bundle_id")
-    settings_options.add_argument("--set-notification-center",
-                                  metavar=("enable|disable", "<bundle_id>"),
-                                  nargs="*",
-                                  help="set show in notification center setting for specified bundle_id")
-    settings_options.add_argument("--set-badge-icon",
-                                  metavar=("enable|disable", "<bundle_id>"),
-                                  nargs="*",
-                                  help="set show badge app icon setting for specified bundle_id")
-    settings_options.add_argument("--set-play-sound",
-                                  metavar=("enable|disable", "<bundle_id>"),
-                                  nargs="*",
-                                  help="set play sound for notifications setting for specified bundle_id")
+    set_options = parser.add_argument_group('set specific notification nc_settings')
+    set_options.add_argument("-sa", "--set-alert-style",
+                              metavar=("alerts|banners|none", "<bundle_id>"),
+                              nargs="*",
+                              help="set notification 'Alert style' for specified bundle_id")
+    set_options.add_argument("-st", "--set-time-sensitive-alerts",
+                              metavar=("enable|disable", "<bundle_id>"),
+                              nargs="*",
+                              help="set 'Time-sensitivie alerts' for specified bundle_id")
+    set_options.add_argument("-so", "--set-show-on-lock-screen",
+                              metavar=("enable|disable", "<bundle_id>"),
+                              nargs="*",
+                              help="set 'Show notifications on lock screen' for specified bundle_id")
+    set_options.add_argument("-sn", "--set-show-in-notification-center",
+                              metavar=("enable|disable", "<bundle_id>"),
+                              nargs="*",
+                              help="set 'Show in notification center' for specified bundle_id")
+    set_options.add_argument("-sb", "--set-badge-app-icon",
+                              metavar=("enable|disable", "<bundle_id>"),
+                              nargs="*",
+                              help="set 'Badge app icon' for specified bundle_id")
+    set_options.add_argument("-sp", "--set-play-sound",
+                              metavar=("enable|disable", "<bundle_id>"),
+                              nargs="*",
+                              help="set 'Play sound for notifications\' for specified bundle_id")
+    set_options.add_argument("-sr", "--set-show-previews",
+                              metavar=("always|unlocked|never", "<bundle_id>"),
+                              nargs="*",
+                              help="set 'Show previews' option for specified bundle_id")
+    set_options.add_argument("-sg", "--set-notification-grouping",
+                              metavar=("automatic|byapp|off", "<bundle_id>"),
+                              nargs="*",
+                              help="set 'Notification grouping' for specified bundle_id")
+
+    global_options = parser.add_argument_group('global notification settings')
+    global_options.add_argument("--get-global-show-previews", action="store_true",
+                              help="get the global 'Show previews' setting")
+    global_options.add_argument("--set-global-show-previews",
+                              metavar=("always|unlocked|never"),
+                              nargs="*",
+                              help="set the global 'Show previews' option for specified bundle_id")
 
     debug_options = parser.add_argument_group('debug')
     debug_options.add_argument("-v", "--verbose", action="store_true",
-                               help="enable verbosity")
+                              help="enable verbosity")
+    debug_options.add_argument("--version", action="store_true",
+                              help="display ncprefs.py version")
+
     args = parser.parse_args()
-
-    # get the macOS major number
-    v, _, _ = mac_ver()
-    mac_major = int(v.split('.')[1])
-
-	# make sure we are on a supported macOS version before continuing.
-    if mac_major >= 15:
-        verbose(f"Running Catalina or later")
-        CATALINA = True
-    elif mac_major == 14:
-        verbose("Running Mojave")
-        CATALINA = False
-    else:
-        verbose(f"Running unsupported version 10.{mac_major}")
-        print("Error: ncprefs only supports macOS 10.14 (Mojave) and later.")
-        sys.exit(1)
-
-    # print the help menu if no arguments are specified
+    
+    # when no argument specified, auto print the help
     if len(sys.argv) <= 1:
         parser.print_help()
-        parser.exit()
+
     if args.list:
-        list_bundle_id(pl)
-    if args.get_info:
-        get_info(args.get_info)
+        list_bundle_ids(pl)
+
     if args.get_alert_style:
-        item_found, _, current_flags = bundle_id_exists(args.get_alert_style)
+        item_found, _, current_flags, _, _ = bundle_id_exists(args.get_alert_style)
         if item_found:
             print(get_alert_style(current_flags))
-    if args.get_lock_screen:
-        item_found, _, current_flags = bundle_id_exists(args.get_lock_screen)
+    
+    if args.get_allow_critical_alerts:
+        item_found, _, current_flags, _, _ = bundle_id_exists(args.get_allow_critical_alerts)
+        if item_found and args.get_allow_critical_alerts == "com.apple.Home":
+            print(get_notification_setting(current_flags, CRITICAL_ALERTS))
+        else:
+            error("'Allow critical alerts' seems only available to the Home app")
+
+    if args.get_time_sensitive_alerts:
+        item_found, _, current_flags, _, _ = bundle_id_exists(args.get_time_sensitive_alerts)
         if item_found:
-            print(get_show_on_lock_screen_status(current_flags))
-    if args.get_show_preview:
-        item_found, _, current_flags = bundle_id_exists(args.get_show_preview)
+            if args.get_time_sensitive_alerts in TIME_SENSITIVE_APPS:
+                print(get_notification_setting(current_flags, TIME_SENSITIVE_ALERTS))
+            else:
+        	    error(f"'Allow time-sensitive alerts' not available for {args.get_time_sensitive_alerts}")
+
+    if args.get_show_on_lock_screen:
+        item_found, _, current_flags, _, _ = bundle_id_exists(args.get_show_on_lock_screen)
         if item_found:
-            print(get_show_preview_status(current_flags))
+            print(get_notification_setting(current_flags, SHOW_ON_LOCK_SCREEN))
+
+    if args.get_show_in_notification_center:
+        item_found, _, current_flags, _, _ = bundle_id_exists(args.get_show_in_notification_center)
+        if item_found:
+            print(get_notification_setting(current_flags, SHOW_IN_NOTIFICATION_CENTER))
+
+    if args.get_badge_app_icon:
+        item_found, _, current_flags, _, _ = bundle_id_exists(args.get_badge_app_icon)
+        if item_found:
+            print(get_notification_setting(current_flags, BADGE_APP_ICON))
+
+    if args.get_play_sound:
+        item_found, _, current_flags, _, _ = bundle_id_exists(args.get_play_sound)
+        if item_found:
+            print(get_notification_setting(current_flags, PLAY_SOUND_FOR_NOTIFICATIONS))
+
+    if args.get_show_previews:
+        item_found, _, _, _, content_visibility = bundle_id_exists(args.get_show_previews)
+        if item_found:
+    	    print(get_show_previews(content_visibility))
+
+    if args.get_notification_grouping:
+        item_found, _, _, grouping, _ = bundle_id_exists(args.get_notification_grouping)
+        if item_found:
+    	    print(get_notification_grouping(grouping))
+
     if args.set_alert_style:
-    	set_alert_style(args.set_alert_style[0], args.set_alert_style[1])
-    if args.set_lock_screen:
-        set_show_on_lock_screen(args.set_lock_screen[0], args.set_lock_screen[1])
-    if args.set_show_preview:
-        set_show_preview(args.set_show_preview[0], args.set_show_preview[1])
-    if args.set_notification_center:
-        set_show_in_nc(args.set_notification_center[0], args.set_notification_center[1])
-    if args.set_badge_icon:
-        set_show_badge_app_icon(args.set_badge_icon[0], args.set_badge_icon[1])
+        item_found, item_index, current_flags, _, _ = bundle_id_exists(args.set_alert_style[1])
+        if item_found:
+            set_alert_style(args.set_alert_style[0])
+
+    if args.set_time_sensitive_alerts:
+        item_found, item_index, current_flags, _, _ = bundle_id_exists(args.set_time_sensitive_alerts[1])
+        if item_found:
+            set_notification_option(args.set_time_sensitive_alerts[0], TIME_SENSITIVE_ALERTS)
+
+    if args.set_show_on_lock_screen:
+        item_found, item_index, current_flags, _, _ = bundle_id_exists(args.set_time_sensitive_alerts[1])
+        if item_found:
+            set_notification_option(args.set_show_on_lock_screen[0], SHOW_ON_LOCK_SCREEN)
+
+    if args.set_show_in_notification_center:
+        item_found, item_index, current_flags, _, _ = bundle_id_exists(args.set_show_in_notification_center[1])
+        if item_found:
+            set_notification_option(args.set_show_in_notification_center[0], SHOW_IN_NOTIFICATION_CENTER)
+
+    if args.set_badge_app_icon:
+        item_found, item_index, current_flags, _, _ = bundle_id_exists(args.set_badge_app_icon[1])
+        if item_found:
+            set_notification_option(args.set_badge_app_icon[0], BADGE_APP_ICON)
+
     if args.set_play_sound:
-        set_play_sound(args.set_play_sound[0], args.set_play_sound[1:])
+        item_found, item_index, current_flags, _, _ = bundle_id_exists(args.set_play_sound[1])
+        if item_found:
+            set_notification_option(args.set_play_sound[0], PLAY_SOUND_FOR_NOTIFICATIONS)
+
+    if args.set_show_previews:
+        item_found, item_index, _, _, _ = bundle_id_exists(args.set_show_previews[1])
+        if item_found:
+            set_show_previews(args.set_show_previews[0])
+
+    if args.set_notification_grouping:
+        item_found, item_index, _, _, _ = bundle_id_exists(args.set_notification_grouping[1])
+        if item_found:
+            set_notification_grouping(args.set_notification_grouping[0])
+
+    if args.get_global_show_previews:
+        value = CFPreferencesCopyAppValue('content_visibility', NCPREFS_PLIST)
+        print(get_show_previews(value))
+
+    if args.set_global_show_previews:
+        option = args.set_global_show_previews[0]
+        if option == "always":
+            new_option = 3
+        elif option == "unlocked":
+            new_option = 2
+        elif option == "never":
+            new_option = 1
+        else:
+            error(f"{option} unrecognized, must be one of 'always', 'unlocked' or 'never'")
+            sys.exit(1)
+        
+        CFPreferencesSetAppValue('content_visibility', new_option, NCPREFS_PLIST)
+        kill_usernoted()
+
+    if args.version:
+        print(f"{NCPREFSPY_VERSION}")
