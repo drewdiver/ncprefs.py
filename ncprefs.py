@@ -182,7 +182,7 @@ def disallow_notifications():
 	modify_ncprefs_plist('flags', new_flags, item_index)
 	kill_usernoted()
 
-def set_alert_style(option, nc_setting):
+def set_alert_style(option):
     new_flags = current_flags
     # clear the current alert style (which is also equivalent to an alert style of 'None')
     new_flags &= ~0b111000
@@ -193,7 +193,7 @@ def set_alert_style(option, nc_setting):
     elif option == 'none':
         pass
     else:
-        error(f"{nc_setting} not found, must be one of alert, banners or none")
+        error(f"{option} not found, must be one of alert, banners or none")
         sys.exit(1)
 
     modify_ncprefs_plist('flags', new_flags, item_index)
