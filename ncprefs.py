@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/python3
+#!/usr/bin/env python
 
 import os, argparse, subprocess, sys
 from platform import mac_ver
